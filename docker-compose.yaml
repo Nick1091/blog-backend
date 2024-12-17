@@ -1,0 +1,48 @@
+version: '3.5'
+
+services:
+  pgadmin:
+    container_name: pgadmin_container
+    build:
+      context: .
+      dockerfile: ./docker/Dockerfile
+    restart: unless-stopped
+    env_file: .env
+    depends_on:
+      - postgres
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${ROOT_MAIL}
+      PGADMIN_DEFAULT_PASSWORD: ${ROOT_PASSWORD}
+    ports:
+      - 5050:80
+    networks:
+      - custom-network
+    volumes:
+      - .:/app
+      - /app/node_modules
+  postgres:
+    container_name: postgres_container
+    build: 
+      context: .
+      dockerfile: ./Dockerfile
+    environment:
+      - POSTGRES_USER:${POSTGRES_USER}
+      - POSTGRES_PASSWORD:${POSTGRES_PASSWORD}
+      - POSTGRES_DB:${POSTGRES_DB}
+      - PGDATA:${PGDATA}
+    volumes:
+      - postgres:${PGDATA}
+    ports:
+      - ${POSTGRES_PORT}:${POSTGRES_PORT}
+    restart: unless-stopped
+    env_file: .env
+    networks:
+      - custom-network
+
+networks:
+  custom-network:
+    name: custom-network
+    driver: bridge
+
+volumes:
+  postgres:
