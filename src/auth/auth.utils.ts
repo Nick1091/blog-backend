@@ -1,8 +1,8 @@
-import { REFRESH_TOKEN } from 'src/common';
 import { Tokens } from './auth.interface';
 import { HttpStatus, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Response } from 'express';
+import { REFRESH_TOKEN } from './auth.constants';
 
 export const setRefreshTokenToCookie = (
   tokens: Tokens,

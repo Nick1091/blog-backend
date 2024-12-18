@@ -1,21 +1,29 @@
 import {
   ForbiddenException,
+  Inject,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
-import { Prisma, User } from '@prisma/client';
+import { Prisma, Role, User } from '@prisma/client';
 import { ERRORS_MSGS } from 'src/common/constants';
 import { comparePassword, setHashPassword } from 'src/common/utils';
 import { UpdateUserDto } from './dto/update-user.dto';
+import { JWTPayload } from 'src/auth/auth.interface';
+import { CACHE_MANAGER, Cache } from '@nestjs/cache-manager';
+import ms from 'ms';
+import { JWT_CONSTANTS } from 'src/auth/config';
 
 @Injectable()
 export class UserService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    @Inject(CACHE_MANAGER) private cacheManager: Cache,
+  ) {}
 
   async createUser(data: Prisma.UserCreateInput): Promise<User> {
     const hashedPassword = await setHashPassword(data.password);
-    console.log(hashedPassword, data);
+
     return this.prisma.user.create({
       data: {
         ...data,
@@ -26,14 +34,35 @@ export class UserService {
 
   async findOne(
     userWhereUniqueInput: Prisma.UserWhereUniqueInput,
+    isReset = false,
   ): Promise<User | null> {
-    const user = this.prisma.user.findUnique({
-      where: userWhereUniqueInput,
-    });
+    if (isReset) {
+      await this.cacheManager.del(
+        userWhereUniqueInput.uid || userWhereUniqueInput.email,
+      );
+    }
+    const user = await this.cacheManager.get<User>(
+      userWhereUniqueInput.uid || userWhereUniqueInput.email,
+    );
 
     if (!user) {
-      throw new NotFoundException(ERRORS_MSGS.USER.USER_NOT_FOUND);
+      const user = await this.prisma.user.findUnique({
+        where: userWhereUniqueInput,
+      });
+
+      if (!user) {
+        throw new NotFoundException(ERRORS_MSGS.USER.USER_NOT_FOUND);
+      }
+
+      await this.cacheManager.set(
+        userWhereUniqueInput.uid || userWhereUniqueInput.email,
+        user,
+        ms(JWT_CONSTANTS.refresh_expiry),
+      );
+
+      return user;
     }
+
     return user;
   }
 
@@ -59,8 +88,17 @@ export class UserService {
     return users;
   }
 
-  async update(params: { uid: string; data: UpdateUserDto }): Promise<User> {
+  async update(
+    params: {
+      uid: string;
+      data: UpdateUserDto;
+    },
+    jwtUser: JWTPayload,
+  ): Promise<User> {
     const { uid, data } = params;
+    if (jwtUser.sub !== uid && !jwtUser.roles.includes(Role.ADMIN)) {
+      throw new ForbiddenException();
+    }
 
     const userBd = await this.prisma.user.findFirst({ where: { uid } });
 
@@ -85,7 +123,24 @@ export class UserService {
 
   async delete(
     userWhereUniqueInput: Prisma.UserWhereUniqueInput,
+    jwtUser: JWTPayload,
   ): Promise<User> {
+    if (
+      jwtUser.sub !== userWhereUniqueInput.uid &&
+      !jwtUser.roles.includes(Role.ADMIN)
+    ) {
+      throw new ForbiddenException();
+    }
+    const cashUser = await this.cacheManager.get<User>(
+      userWhereUniqueInput.uid || userWhereUniqueInput.email,
+    );
+
+    if (cashUser) {
+      await this.cacheManager.del(
+        userWhereUniqueInput.uid || userWhereUniqueInput.email,
+      );
+    }
+
     const user = this.prisma.user.findUnique({
       where: userWhereUniqueInput,
     });

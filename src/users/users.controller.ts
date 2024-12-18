@@ -14,9 +14,10 @@ import {
 } from '@nestjs/common';
 import { UserService } from './users.service';
 import { User as UserModel } from '@prisma/client';
-import { CreateUserDto } from './dto/create-user.dto';
-import { UserEntity } from './entities/user.entity';
-import { UpdateUserDto } from './dto/update-user.dto';
+import { CreateUserDto, UpdateUserDto } from './dto';
+import { UserEntity } from './entities';
+import { CurrentUser, Public } from 'src/common';
+import { JWTPayload } from 'src/auth/auth.interface';
 
 @Controller('users')
 @UseInterceptors(ClassSerializerInterceptor)
@@ -30,6 +31,7 @@ export class UserController {
     return new UserEntity(user);
   }
 
+  @Public()
   @Get()
   async findAll(): Promise<UserModel[]> {
     const users = await this.userService.findAll({});
@@ -45,24 +47,35 @@ export class UserController {
     return new UserEntity(user);
   }
 
+  @Public()
   @Put(':uid')
   @HttpCode(HttpStatus.OK)
   async updatePassword(
     @Param('uid', new ParseUUIDPipe({ version: '4' })) uid: string,
     @Body() updateUserDto: UpdateUserDto,
+    @CurrentUser() jwtUser: JWTPayload,
   ) {
-    const user = await this.userService.update({
-      uid,
-      data: updateUserDto,
-    });
+    const user = await this.userService.update(
+      {
+        uid,
+        data: updateUserDto,
+      },
+      jwtUser,
+    );
     return new UserEntity(user);
   }
 
   @Delete(':uid')
   @HttpCode(HttpStatus.NO_CONTENT)
-  async delete(@Param('uid', new ParseUUIDPipe({ version: '4' })) uid: string) {
-    await this.userService.delete({
-      uid,
-    });
+  async delete(
+    @Param('uid', new ParseUUIDPipe({ version: '4' })) uid: string,
+    @CurrentUser() user: JWTPayload,
+  ) {
+    await this.userService.delete(
+      {
+        uid,
+      },
+      user,
+    );
   }
 }

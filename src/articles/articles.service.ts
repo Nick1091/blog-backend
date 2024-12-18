@@ -21,7 +21,6 @@ export class ArticlesService {
         createdAt: date,
       },
     });
-    console.log(request);
     return request;
   }
 }

@@ -20,7 +20,7 @@ model User {
   createdAt     DateTime  @default(now()) @map("created_at")
   updatedAt     DateTime  @updatedAt @map("updated_at")
   Token         Token[]
-  articles      Article[]  
+  Articles      Article[]  
 
   @@map("users")
 }
@@ -28,8 +28,9 @@ model User {
 model Token {
   token           String    @id @default(uuid()) 
   exp             DateTime    
-  user            User      @relation(fields: [userUid], references: [uid])
+  user            User      @relation(fields: [userUid], references: [uid], onDelete: Cascade)
   userUid         String
+  userAgent       String    @map("user_agent")
 
   @@map("tokens")
 }
@@ -39,9 +40,9 @@ model Article {
   title       String      @unique
   content     String
 
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
-  userUid     String?   
+  createdAt   DateTime    @default(now()) @map("created_at")
+  updatedAt   DateTime    @updatedAt @map("updated_at")
+  userUid     String?     @map("user_uid")
 
   user        User?       @relation(fields: [userUid], references: [uid], onDelete: SetNull)
 
