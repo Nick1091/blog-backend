@@ -33,21 +33,11 @@ export class AuthService {
     refreshToken: string,
     userAgent: string,
   ): Promise<Tokens> {
-    const token = await this.prismaService.token.findFirst({
+    const token = await this.prismaService.token.delete({
       where: { token: refreshToken },
     });
 
-    if (token) {
-      await this.prismaService.token.delete({
-        where: { token: refreshToken },
-      });
-    }
-
-    if (!token) {
-      throw new UnauthorizedException();
-    }
-
-    if (new Date(token?.exp) < new Date()) {
+    if (!token || new Date(token?.exp) < new Date()) {
       throw new UnauthorizedException();
     }
 
@@ -65,9 +55,12 @@ export class AuthService {
       throw new ConflictException(ERRORS_MSGS.USER.USER_ALREADY_EXISTS);
     }
 
-    return await this.userService.createUser(dto).catch((err) => {
-      this.logger.error(err);
-    });
+    try {
+      return await this.userService.createOne(dto);
+    } catch (err) {
+      this.logger.error('Error creating user: ', err);
+      throw new BadRequestException(ERRORS_MSGS.USER.REGISTRATION_FAILED);
+    }
   }
 
   async login(dto: LoginDto, userAgent: string): Promise<Tokens> {
@@ -75,15 +68,19 @@ export class AuthService {
       where: { email: dto.email },
     });
 
+    if (!user) {
+      throw new BadRequestException(ERRORS_MSGS.NOT_AUTHORIZED);
+    }
+
+    if (!user || !(await bcrypt.compare(dto.password, user.password))) {
+      throw new BadRequestException(ERRORS_MSGS.NOT_AUTHORIZED);
+    }
+
     await this.cacheManager.set(
       user.uid,
       user,
       ms(JWT_CONSTANTS.access_expiry),
     );
-
-    if (!user || !(await bcrypt.compare(dto.password, user.password))) {
-      throw new BadRequestException(ERRORS_MSGS.NOT_AUTHORIZED);
-    }
 
     return await this.getTokens(user, userAgent);
   }

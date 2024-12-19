@@ -9,17 +9,17 @@ export const setRefreshTokenToCookie = (
   res: Response,
   config: ConfigService,
 ) => {
-  if (!tokens) {
+  const { accessToken, refreshToken } = tokens;
+  if (!tokens || !accessToken || !refreshToken) {
     throw new UnauthorizedException();
   }
-
-  const { accessToken, refreshToken } = tokens;
 
   res.cookie(REFRESH_TOKEN, refreshToken.token, {
     httpOnly: true,
     sameSite: 'lax',
     expires: new Date(refreshToken.exp),
-    secure: config.get('NODE_ENV', 'development') === 'production',
+    secure:
+      config.get('NODE_ENV', 'development').toLowerCase() === 'production',
     path: '/',
   });
   res.status(HttpStatus.CREATED).json({ accessToken });

@@ -26,8 +26,8 @@ export class UserController {
 
   @Post()
   @HttpCode(HttpStatus.CREATED)
-  async create(@Body() userData: CreateUserDto): Promise<UserModel> {
-    const user = await this.userService.createUser(userData);
+  async createOne(@Body() userData: CreateUserDto): Promise<UserModel> {
+    const user = await this.userService.createOne(userData);
     return new UserEntity(user);
   }
 
@@ -55,7 +55,7 @@ export class UserController {
     @Body() updateUserDto: UpdateUserDto,
     @CurrentUser() jwtUser: JWTPayload,
   ) {
-    const user = await this.userService.update(
+    const user = await this.userService.updateOne(
       {
         uid,
         data: updateUserDto,
@@ -71,7 +71,7 @@ export class UserController {
     @Param('uid', new ParseUUIDPipe({ version: '4' })) uid: string,
     @CurrentUser() user: JWTPayload,
   ) {
-    await this.userService.delete(
+    await this.userService.deleteOne(
       {
         uid,
       },

@@ -51,7 +51,6 @@ export class AuthController {
 
   @Get('logout')
   async logout(
-    @Req() req: Request,
     @Res() res: Response,
     @Cookies(REFRESH_TOKEN) refreshToken: string,
   ) {
@@ -65,10 +64,11 @@ export class AuthController {
 
     res.cookie(REFRESH_TOKEN, '', {
       httpOnly: true,
-      secure: true,
+      secure:
+        this.configService.get('NODE_ENV', 'development') === 'production',
       expires: new Date(),
     });
-    res.sendStatus(HttpStatus.OK);
+    res.sendStatus(HttpStatus.OK).json({ message: 'Logout successful' });
   }
 
   @Get('refresh')

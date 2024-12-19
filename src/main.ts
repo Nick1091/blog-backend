@@ -6,6 +6,9 @@ import { HttpExceptionFilter } from './exceptions';
 import cookieParser from 'cookie-parser';
 
 const PORT = process.env.PORT || 5432;
+const host =
+  process.env.NODE_ENV === 'production' ? process.env.HOST : 'localhost';
+const protocol = process.env.NODE_ENV === 'production' ? 'https' : 'http';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -20,6 +23,13 @@ async function bootstrap() {
   );
   const logger = app.get(LoggingService);
   app.useLogger(logger);
+  app.enableCors({
+    origin:
+      process.env.NODE_ENV === 'development'
+        ? 'http://localhost:3000'
+        : process.env.CORS_URL_PROD,
+    credentials: true,
+  });
 
   process.on('unhandledRejection', async (error, origin) => {
     await logger.error(`unhandledRejection: ${error}, origin: ${origin}`);
@@ -31,7 +41,9 @@ async function bootstrap() {
 
   app.useGlobalFilters(new HttpExceptionFilter(logger));
 
-  await app.listen(PORT, () => console.log(`🚀 Server listen port${PORT}`));
+  await app.listen(PORT, () => console.log(`🚀 Server listen port ${PORT}`));
+
+  console.log(`🚀 Server is running on ${protocol}://${host}:${PORT}`);
 }
 
 bootstrap();

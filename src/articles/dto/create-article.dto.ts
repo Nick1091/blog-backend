@@ -8,8 +8,4 @@ export class ArticleCreateDto {
   @IsString()
   @IsNotEmpty()
   content: string;
-
-  @IsUUID()
-  @IsNotEmpty()
-  authorUid: string;
 }

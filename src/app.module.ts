@@ -8,12 +8,14 @@ import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
 import { RolesGuard } from './auth/guards';
 import { CacheInterceptor, CacheModule } from '@nestjs/cache-manager';
+import { ArticlesModule } from './articles/articles.module';
 
 @Module({
   imports: [
     InitAdminModule,
     AuthModule,
     UserModule,
+    ArticlesModule,
     ConfigModule.forRoot({
       isGlobal: true,
     }),

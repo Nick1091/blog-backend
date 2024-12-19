@@ -2,6 +2,7 @@ import {
   ForbiddenException,
   Inject,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
@@ -16,15 +17,16 @@ import { JWT_CONSTANTS } from 'src/auth/config';
 
 @Injectable()
 export class UserService {
+  private readonly logger = new Logger(UserService.name);
   constructor(
-    private prisma: PrismaService,
+    private prismaService: PrismaService,
     @Inject(CACHE_MANAGER) private cacheManager: Cache,
   ) {}
 
-  async createUser(data: Prisma.UserCreateInput): Promise<User> {
+  async createOne(data: Prisma.UserCreateInput): Promise<User> {
     const hashedPassword = await setHashPassword(data.password);
 
-    return this.prisma.user.create({
+    return this.prismaService.user.create({
       data: {
         ...data,
         password: hashedPassword,
@@ -41,12 +43,13 @@ export class UserService {
         userWhereUniqueInput.uid || userWhereUniqueInput.email,
       );
     }
+
     const user = await this.cacheManager.get<User>(
       userWhereUniqueInput.uid || userWhereUniqueInput.email,
     );
 
-    if (!user) {
-      const user = await this.prisma.user.findUnique({
+    if (!user || isReset) {
+      const user = await this.prismaService.user.findUnique({
         where: userWhereUniqueInput,
       });
 
@@ -57,7 +60,7 @@ export class UserService {
       await this.cacheManager.set(
         userWhereUniqueInput.uid || userWhereUniqueInput.email,
         user,
-        ms(JWT_CONSTANTS.refresh_expiry),
+        ms(JWT_CONSTANTS.access_expiry),
       );
 
       return user;
@@ -74,21 +77,21 @@ export class UserService {
     orderBy?: Prisma.UserOrderByWithRelationInput;
   }): Promise<User[]> {
     const { skip, take, cursor, where, orderBy } = params;
-    const users = this.prisma.user.findMany({
-      skip,
-      take,
-      cursor,
-      where,
-      orderBy,
-    });
-
-    if (!users) {
+    try {
+      return await this.prismaService.user.findMany({
+        skip,
+        take,
+        cursor,
+        where,
+        orderBy,
+      });
+    } catch (error) {
+      this.logger.error('Not found articles');
       throw new NotFoundException(ERRORS_MSGS.USER.USER_NOT_FOUND);
     }
-    return users;
   }
 
-  async update(
+  async updateOne(
     params: {
       uid: string;
       data: UpdateUserDto;
@@ -100,7 +103,7 @@ export class UserService {
       throw new ForbiddenException();
     }
 
-    const userBd = await this.prisma.user.findFirst({ where: { uid } });
+    const userBd = await this.prismaService.user.findFirst({ where: { uid } });
 
     if (!userBd) {
       throw new NotFoundException(ERRORS_MSGS.USER.USER_NOT_FOUND);
@@ -111,7 +114,7 @@ export class UserService {
     }
 
     const hash = await setHashPassword(data.newPassword);
-    const newUser = await this.prisma.user.update({
+    const newUser = await this.prismaService.user.update({
       where: { uid },
       data: {
         password: hash,
@@ -121,7 +124,7 @@ export class UserService {
     return newUser;
   }
 
-  async delete(
+  async deleteOne(
     userWhereUniqueInput: Prisma.UserWhereUniqueInput,
     jwtUser: JWTPayload,
   ): Promise<User> {
@@ -141,7 +144,7 @@ export class UserService {
       );
     }
 
-    const user = this.prisma.user.findUnique({
+    const user = await this.prismaService.user.findUnique({
       where: userWhereUniqueInput,
     });
 
@@ -149,7 +152,7 @@ export class UserService {
       throw new NotFoundException(ERRORS_MSGS.USER.USER_NOT_FOUND);
     }
 
-    return this.prisma.user.delete({
+    return await this.prismaService.user.delete({
       where: userWhereUniqueInput,
     });
   }
