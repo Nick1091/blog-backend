@@ -9,14 +9,24 @@ import {
   Res,
   UnauthorizedException,
   Req,
+  ClassSerializerInterceptor,
+  UseInterceptors,
 } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { LoginDto, RegisterDto } from './dto';
-import { Cookies, ERRORS_MSGS, Public, UserAgent } from 'src/common';
+import {
+  Cookies,
+  CurrentUser,
+  ERRORS_MSGS,
+  Public,
+  UserAgent,
+} from 'src/common';
 import { setRefreshTokenToCookie } from './auth.utils';
 import { ConfigService } from '@nestjs/config';
 import { Response, Request } from 'express';
 import { REFRESH_TOKEN } from './auth.constants';
+import { UserEntity } from 'src/users/entities';
+import { JWTPayload } from './auth.interface';
 
 @Public()
 @Controller('auth')
@@ -26,7 +36,8 @@ export class AuthController {
     private readonly configService: ConfigService,
   ) {}
 
-  @Post('register')
+  @UseInterceptors(ClassSerializerInterceptor)
+  @Post('signup')
   @HttpCode(HttpStatus.CREATED)
   async register(@Body() body: RegisterDto) {
     const user = await this.authService.register(body);
@@ -34,16 +45,17 @@ export class AuthController {
     if (!user) {
       throw new BadRequestException(ERRORS_MSGS.WRONG_CREDENTIALS);
     }
-    return user;
+    return new UserEntity(user);
   }
 
-  @Post('login')
-  async login(
+  @Post('signin')
+  async signin(
     @Body() body: LoginDto,
     @Res() res: Response,
     @UserAgent() agent: string,
+    @CurrentUser() user: JWTPayload,
   ) {
-    const tokens = await this.authService.login(body, agent);
+    const tokens = await this.authService.login(body, agent, user);
 
     if (!tokens) throw new BadRequestException(ERRORS_MSGS.WRONG_CREDENTIALS);
     setRefreshTokenToCookie(tokens, res, this.configService);

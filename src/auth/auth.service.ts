@@ -18,6 +18,7 @@ import { JWTPayload, Tokens } from './auth.interface';
 import { v4 } from 'uuid';
 import { JWT_CONSTANTS } from './config/constants';
 import { CACHE_MANAGER, Cache } from '@nestjs/cache-manager';
+import { Role } from '@prisma/client';
 
 @Injectable()
 export class AuthService {
@@ -63,18 +64,25 @@ export class AuthService {
     }
   }
 
-  async login(dto: LoginDto, userAgent: string): Promise<Tokens> {
+  async login(
+    dto: LoginDto,
+    userAgent: string,
+    jwtUser: JWTPayload,
+  ): Promise<Tokens> {
+    console.log(dto);
     const user = await this.prismaService.user.findUnique({
       where: { email: dto.email },
     });
 
-    if (!user) {
+    if (
+      !user ||
+      (!jwtUser.roles.includes(Role.ADMIN) &&
+        !(await bcrypt.compare(dto.password, user.password)))
+    ) {
       throw new BadRequestException(ERRORS_MSGS.NOT_AUTHORIZED);
     }
 
-    if (!user || !(await bcrypt.compare(dto.password, user.password))) {
-      throw new BadRequestException(ERRORS_MSGS.NOT_AUTHORIZED);
-    }
+    console.log('continue');
 
     await this.cacheManager.set(
       user.uid,

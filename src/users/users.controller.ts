@@ -47,6 +47,14 @@ export class UserController {
     return new UserEntity(user);
   }
 
+  @Get('current')
+  @HttpCode(HttpStatus.OK)
+  async findCurrent(@CurrentUser() jwtUser: JWTPayload): Promise<UserModel> {
+    const uid = jwtUser.sub;
+    const user = await this.userService.findOne({ uid });
+    return new UserEntity(user);
+  }
+
   @Public()
   @Put(':uid')
   @HttpCode(HttpStatus.OK)
