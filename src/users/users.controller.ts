@@ -13,10 +13,10 @@ import {
   Delete,
 } from '@nestjs/common';
 import { UserService } from './users.service';
-import { User as UserModel } from '@prisma/client';
+import { User as UserModel, Role as RoleUser } from '@prisma/client';
 import { CreateUserDto, UpdateUserDto } from './dto';
 import { UserEntity } from './entities';
-import { CurrentUser, Public } from 'src/common';
+import { CurrentUser, Public, Roles } from 'src/common';
 import { JWTPayload } from 'src/auth/auth.interface';
 
 @Controller('users')
@@ -24,6 +24,7 @@ import { JWTPayload } from 'src/auth/auth.interface';
 export class UserController {
   constructor(private readonly userService: UserService) {}
 
+  @Roles(RoleUser.ADMIN)
   @Post()
   @HttpCode(HttpStatus.CREATED)
   async createOne(@Body() userData: CreateUserDto): Promise<UserModel> {
@@ -55,7 +56,6 @@ export class UserController {
     return new UserEntity(user);
   }
 
-  @Public()
   @Put(':uid')
   @HttpCode(HttpStatus.OK)
   async updatePassword(
